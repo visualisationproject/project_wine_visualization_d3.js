@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Exploration hors ligne des 13 variables numériques du jeu de données Wine avec D3.js.">
+  <title>Wine — exploration visuelle</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="d3.v7.min.js"></script>
+  <script src="wine-data.js"></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="page-head">
+    <div class="head-copy">
+      <p class="eyebrow">TP · VISUALISATION EXPLORATOIRE · D3.JS</p>
+      <h1>Wine <span>en clair.</span></h1>
+      <p class="intro">Explorer les relations entre les mesures chimiques, repérer des profils et examiner une variable en détail.</p>
+    </div>
+    <div class="dataset-badge"><span class="badge-dot"></span><span id="dataset-summary">Chargement des données…</span></div>
+  </header>
+
+  <main>
+    <section class="overview" aria-label="Résumé des données">
+      <div class="overview-item"><span class="overview-value" id="row-count">—</span><span class="overview-label">observations</span></div>
+      <div class="overview-item"><span class="overview-value" id="feature-count">—</span><span class="overview-label">variables numériques</span></div>
+      <div class="overview-item overview-selection"><span class="overview-value" id="selection-count">178 / 178</span><span class="overview-label" id="selection-label">observations visibles</span></div>
+      <button id="clear-selection" class="quiet-button" type="button">Effacer la sélection</button>
+    </section>
+
+    <section class="card matrix-card" aria-labelledby="matrix-heading">
+      <div class="section-heading">
+        <div><p class="kicker">01 · VUE GLOBALE</p><h2 id="matrix-heading">Matrice de dispersion</h2></div>
+        <p class="section-hint">Les libellés abrégés affichent leur nom complet au survol. Glissez dans une case pour sélectionner des observations ; cliquez sur un libellé pour choisir la variable détaillée.</p>
+      </div>
+      <div class="legend"><span class="legend-dot muted-dot"></span>Observations <span class="legend-dot selected-dot"></span>Sélection</div>
+      <div class="chart-scroll matrix-scroll"><svg id="scatter-matrix" aria-label="Matrice de dispersion interactive des 13 variables numériques"></svg></div>
+    </section>
+
+    <section class="card parallel-card" aria-labelledby="parallel-heading">
+      <div class="section-heading">
+        <div><p class="kicker">02 · VUE GLOBALE</p><h2 id="parallel-heading">Coordonnées parallèles</h2></div>
+        <p class="section-hint">Chaque ligne représente une observation. Les noms complets apparaissent au survol ; les plages sélectionnées sur plusieurs axes se combinent. Cliquez sur un libellé pour choisir la variable détaillée.</p>
+      </div>
+      <div class="legend"><span class="legend-line"></span>Toutes les observations <span class="legend-line selected-line"></span>Observations sélectionnées</div>
+      <div class="chart-scroll parallel-scroll"><svg id="parallel-plot" aria-label="Coordonnées parallèles interactives des variables du vin"></svg></div>
+    </section>
+
+    <section class="card detail-card" aria-labelledby="detail-heading">
+      <div class="section-heading detail-heading">
+        <div><p class="kicker">03 · VUE DÉTAILLÉE</p><h2 id="detail-heading">Distribution d’une variable</h2></div>
+        <label class="feature-picker">Variable à examiner
+          <select id="feature-select" aria-label="Variable à examiner"></select>
+        </label>
+      </div>
+      <p class="section-hint detail-explainer">Histogramme et estimation de densité à noyau gaussien (KDE) sont superposés sur une échelle d’effectifs équivalents. La sélection apparaît en orange.</p>
+      <div class="controls">
+        <label class="range-control" for="bin-width"><span>Largeur des classes</span><output id="bin-width-output">—</output><input id="bin-width" type="range" min="0" max="100" step="1" value="35"></label>
+        <label class="range-control" for="bandwidth"><span>Lissage du noyau gaussien</span><output id="bandwidth-output">—</output><input id="bandwidth" type="range" min="0" max="100" step="1" value="24"></label>
+      </div>
+      <div class="legend distribution-legend"><span class="legend-box"></span>Histogramme (ensemble) <span class="legend-line density-line"></span>Densité KDE <span class="legend-box selected-box"></span>Sélection</div>
+      <div class="chart-scroll distribution-scroll"><svg id="distribution-plot" aria-label="Histogramme et densité gaussienne de la variable choisie"></svg></div>
+    </section>
+
+    <footer class="page-foot"><span>Wine recognition data · 178 lignes · 13 mesures continues</span><span>D3.js v7 · fichiers locaux · sans serveur</span></footer>
+  </main>
+  <div id="tooltip" role="status" aria-live="polite"></div>
+</body>
+</html>
