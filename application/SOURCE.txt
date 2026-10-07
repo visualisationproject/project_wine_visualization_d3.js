@@ -1,0 +1,6 @@
+Jeu de données : Wine recognition data (jeu Wine fourni par l'utilisateur).
+Description consultée : fichier wine.names fourni avec les données.
+La première colonne (identifiant de classe) n'est pas distribuée dans wine.csv,
+wine.json ni wine-data.js : seules les 13 mesures continues sont incluses.
+
+D3.js : version 7.1.1, fichier d3.v7.min.js extrait de l'archive exemple fournie.
