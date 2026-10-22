@@ -29,6 +29,7 @@
   let matrixScales = new Map();
   let parallelScales = new Map();
   let resizeTimer;
+  let activeScatterCell = null;
 
   const $ = selector => document.querySelector(selector);
   const safeRange = key => {
@@ -51,22 +52,66 @@
     configureSliders();
     drawMatrix();
     drawParallel();
-    drawDistribution();
+    drawDistribution(true);
     updateStatus();
+    setupPageMotion();
 
     $("#feature-select").addEventListener("change", event => setDetailFeature(event.target.value));
-    $("#bin-width").addEventListener("input", drawDistribution);
+    $("#bin-count").addEventListener("input", drawDistribution);
     $("#bandwidth").addEventListener("input", drawDistribution);
     $("#clear-selection").addEventListener("click", clearSelection);
+    const scatterDialog = $("#scatter-dialog");
+    $("#scatter-dialog-close").addEventListener("click", () => scatterDialog.close());
+    scatterDialog.addEventListener("click", event => {
+      if (event.target === scatterDialog) scatterDialog.close();
+    });
+    scatterDialog.addEventListener("close", () => { activeScatterCell = null; });
     window.addEventListener("resize", () => {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
         drawMatrix();
         drawParallel();
         drawDistribution();
+        if (activeScatterCell && scatterDialog.open) drawEnlargedScatter(activeScatterCell);
         updateHighlights();
       }, 120);
     });
+  }
+
+  function setupPageMotion() {
+    const reveals = Array.from(document.querySelectorAll(".js-reveal"));
+    const navigation = Array.from(document.querySelectorAll(".site-nav a"));
+    const sections = navigation.map(link => document.querySelector(link.getAttribute("href"))).filter(Boolean);
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    if (reduceMotion || !("IntersectionObserver" in window)) {
+      reveals.forEach(element => element.classList.add("is-visible"));
+      if (navigation[0]) navigation[0].classList.add("is-current");
+      return;
+    }
+
+    document.documentElement.classList.add("motion-ready");
+    const revealObserver = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add("is-visible");
+        revealObserver.unobserve(entry.target);
+      });
+    }, { threshold: 0.06, rootMargin: "0px 0px -7% 0px" });
+    reveals.forEach(element => revealObserver.observe(element));
+
+    const sectionObserver = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        navigation.forEach(link => {
+          const active = link.getAttribute("href") === `#${entry.target.id}`;
+          link.classList.toggle("is-current", active);
+          if (active) link.setAttribute("aria-current", "location");
+          else link.removeAttribute("aria-current");
+        });
+      });
+    }, { threshold: 0, rootMargin: "-28% 0px -58% 0px" });
+    sections.forEach(section => sectionObserver.observe(section));
   }
 
   function populateFeatureSelect() {
@@ -77,11 +122,11 @@
 
   function configureSliders() {
     const range = safeRange(detailKey);
-    const binInput = $("#bin-width");
-    binInput.min = String(range / 60);
-    binInput.max = String(range / 5);
-    binInput.step = String(range / 500);
-    binInput.value = String(range / 15);
+    const binInput = $("#bin-count");
+    binInput.min = "5";
+    binInput.max = "40";
+    binInput.step = "1";
+    binInput.value = "15";
     const bandwidthInput = $("#bandwidth");
     bandwidthInput.min = String(range * .015);
     bandwidthInput.max = String(range * .45);
@@ -94,7 +139,7 @@
     detailKey = key;
     $("#feature-select").value = key;
     configureSliders();
-    drawDistribution();
+    drawDistribution(true);
   }
 
   function setSelection(ids) {
@@ -157,6 +202,28 @@
     d3.selectAll(".matrix-dot, .parallel-path")
       .classed("is-selected", d => selectionActive() && selectedIds.has(d.__id))
       .attr("opacity", d => !selectionActive() || selectedIds.has(d.__id) ? 1 : .14);
+    updateMatrixDiagonalSelection();
+  }
+
+  function updateMatrixDiagonalSelection() {
+    const matrix = d3.select("#scatter-matrix");
+    if (matrix.empty()) return;
+    matrix.selectAll("g.matrix-cell").filter(cell => cell.row === cell.col).each(function(cell) {
+      const key = cell.xFeature.key;
+      const [min, max] = extents.get(key);
+      const binning = d3.bin().value(d => d[key]).domain([min, max]).thresholds(5);
+      const allBins = binning(DATA);
+      const selectedBins = selectionActive() ? binning(visibleData()) : [];
+      const y = d3.scaleLinear()
+        .domain([0, d3.max(allBins, bin => bin.length) || 1])
+        .range([matrixCellSize - 4, 4]);
+      d3.select(this).selectAll("rect.matrix-diag-selected").data(selectedBins).join("rect")
+        .attr("class", "matrix-diag-selected")
+        .attr("x", bin => Math.max(1, matrixScales.get(key)(bin.x0)))
+        .attr("y", bin => y(bin.length))
+        .attr("width", bin => Math.max(0, matrixScales.get(key)(bin.x1) - matrixScales.get(key)(bin.x0) - 1))
+        .attr("height", bin => matrixCellSize - 4 - y(bin.length));
+    });
   }
 
   function clickableLabel(selection, keyAccessor) {
@@ -218,6 +285,10 @@
       const sx = matrixScales.get(cell.xFeature.key);
       const sy = matrixScales.get(cell.yFeature.key);
       const group = d3.select(this);
+      group.attr("class", "matrix-cell scatter-cell")
+        .attr("role", "button")
+        .attr("tabindex", 0)
+        .attr("aria-label", `Agrandir le nuage : ${cell.yFeature.label} en fonction de ${cell.xFeature.label}`);
       group.selectAll("circle.matrix-dot").data(DATA).join("circle")
         .attr("class", "matrix-dot")
         .attr("data-observation", d => d.__id)
@@ -230,15 +301,28 @@
         .on("mouseleave", hideTooltip);
       group.append("title").text(`${cell.xFeature.label} × ${cell.yFeature.label} — glisser pour sélectionner`);
       let brushGroup;
+      let brushMoved = false;
+      let ignoreClickAfterBrush = false;
       const brush = d3.brush().extent([[2, 2], [matrixCellSize - 2, matrixCellSize - 2]])
         .on("start", event => {
-          if (event.sourceEvent && !suppressBrushEvents) {
-            clearParallelBrushes();
-            clearOtherMatrixBrushes(brushGroup.node());
-          }
+          if (event.sourceEvent && !suppressBrushEvents) brushMoved = false;
         })
         .on("brush end", event => {
           if (suppressBrushEvents) return;
+          if (event.type === "brush") {
+            if (!brushMoved) {
+              brushMoved = true;
+              clearParallelBrushes();
+              clearOtherMatrixBrushes(brushGroup.node());
+            }
+          } else if (!brushMoved) {
+            return;
+          }
+          if (event.type === "end") {
+            brushMoved = false;
+            ignoreClickAfterBrush = true;
+            window.setTimeout(() => { ignoreClickAfterBrush = false; }, 0);
+          }
           if (!event.selection) {
             if (event.type === "end") setSelection([]);
             return;
@@ -246,10 +330,26 @@
           const [[x0, y0], [x1, y1]] = event.selection;
           const xv = [sx.invert(x0), sx.invert(x1)].sort((a, b) => a - b);
           const yv = [sy.invert(matrixCellSize - y1), sy.invert(matrixCellSize - y0)].sort((a, b) => a - b);
-          setSelection(DATA.filter(d => d[cell.xFeature.key] >= xv[0] && d[cell.xFeature.key] <= xv[1] && d[cell.yFeature.key] >= yv[0] && d[cell.yFeature.key] <= yv[1]).map(d => d.__id));
+          if (event.type === "brush" || event.type === "end") {
+            setSelection(DATA.filter(d => d[cell.xFeature.key] >= xv[0] && d[cell.xFeature.key] <= xv[1] && d[cell.yFeature.key] >= yv[0] && d[cell.yFeature.key] <= yv[1]).map(d => d.__id));
+          }
         });
       brushGroup = group.append("g").attr("class", "matrix-brush").call(brush);
       brushGroup.node().__brushBehavior = brush;
+      group
+        .on("click.enlarge", () => {
+          if (ignoreClickAfterBrush) {
+            ignoreClickAfterBrush = false;
+            return;
+          }
+          openScatterDialog(cell);
+        })
+        .on("keydown.enlarge", event => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            openScatterDialog(cell);
+          }
+        });
     });
 
     const headerData = FEATURES.map((feature, i) => ({ feature, i }));
@@ -273,6 +373,56 @@
       .text(d => d.feature.short)
       .append("title").text(d => d.feature.label);
     clickableLabel(svg.selectAll("text.y-label"), d => d.feature.key);
+  }
+
+  function openScatterDialog(cell) {
+    activeScatterCell = cell;
+    $("#scatter-dialog-title").textContent = `${cell.yFeature.label} × ${cell.xFeature.label}`;
+    $("#scatter-dialog-description").textContent = `Axe horizontal : ${cell.xFeature.label}. Axe vertical : ${cell.yFeature.label}. ${DATA.length} observations${selectionActive() ? `, dont ${selectedIds.size} sélectionnée(s)` : ""}.`;
+    const dialog = $("#scatter-dialog");
+    if (!dialog.open) dialog.showModal();
+    drawEnlargedScatter(cell);
+  }
+
+  function drawEnlargedScatter(cell) {
+    const container = $(".scatter-dialog-plot");
+    const width = Math.max(320, Math.min(container.clientWidth || 820, 920));
+    const height = Math.max(300, Math.min(window.innerHeight - 190, 570));
+    const margin = { top: 18, right: 24, bottom: 66, left: 76 };
+    const innerWidth = width - margin.left - margin.right;
+    const innerHeight = height - margin.top - margin.bottom;
+    const xExtent = extents.get(cell.xFeature.key);
+    const yExtent = extents.get(cell.yFeature.key);
+    const xPad = (xExtent[1] - xExtent[0]) * .025 || .5;
+    const yPad = (yExtent[1] - yExtent[0]) * .025 || .5;
+    const x = d3.scaleLinear().domain([xExtent[0] - xPad, xExtent[1] + xPad]).range([0, innerWidth]);
+    const y = d3.scaleLinear().domain([yExtent[0] - yPad, yExtent[1] + yPad]).range([innerHeight, 0]);
+    const svg = d3.select("#scatter-detail-plot")
+      .attr("width", width)
+      .attr("height", height)
+      .attr("viewBox", `0 0 ${width} ${height}`)
+      .attr("aria-label", `Nuage de points : ${cell.yFeature.label} en fonction de ${cell.xFeature.label}`);
+    svg.selectAll("*").remove();
+    const plot = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+    plot.append("g").attr("class", "enlarged-grid")
+      .call(d3.axisLeft(y).ticks(5).tickSize(-innerWidth).tickFormat(""));
+    plot.append("g").selectAll("circle.enlarged-dot").data(DATA).join("circle")
+      .attr("class", d => `enlarged-dot${selectionActive() && selectedIds.has(d.__id) ? " is-selected" : ""}`)
+      .attr("cx", d => x(d[cell.xFeature.key]))
+      .attr("cy", d => y(d[cell.yFeature.key]))
+      .attr("r", 3.2)
+      .append("title")
+      .text(d => `${cell.xFeature.label} : ${niceNumber(d[cell.xFeature.key])} · ${cell.yFeature.label} : ${niceNumber(d[cell.yFeature.key])}`);
+    plot.append("g").attr("class", "enlarged-axis").attr("transform", `translate(0,${innerHeight})`)
+      .call(d3.axisBottom(x).ticks(Math.max(4, Math.floor(innerWidth / 105))).tickFormat(v => niceNumber(v, 4)));
+    plot.append("g").attr("class", "enlarged-axis")
+      .call(d3.axisLeft(y).ticks(6).tickFormat(v => niceNumber(v, 4)));
+    plot.append("text").attr("class", "enlarged-axis-title")
+      .attr("x", innerWidth / 2).attr("y", innerHeight + 52).attr("text-anchor", "middle")
+      .text(cell.xFeature.label);
+    plot.append("text").attr("class", "enlarged-axis-title")
+      .attr("transform", "rotate(-90)").attr("x", -innerHeight / 2).attr("y", -56)
+      .attr("text-anchor", "middle").text(cell.yFeature.label);
   }
 
   function drawParallel() {
@@ -353,7 +503,7 @@
     }));
   }
 
-  function drawDistribution() {
+  function drawDistribution(animate = false) {
     if (!DATA.length || !FEATURE_BY_KEY.has(detailKey)) return;
     const feature = FEATURE_BY_KEY.get(detailKey);
     const [minValue, maxValue] = extents.get(detailKey);
@@ -366,18 +516,19 @@
     const innerHeight = height - margin.top - margin.bottom;
     const x = d3.scaleLinear().domain([minValue - dataRange * .025, maxValue + dataRange * .025]).range([0, innerWidth]);
     const subset = visibleData();
-    const binInput = $("#bin-width");
+    const binInput = $("#bin-count");
     const bandwidthInput = $("#bandwidth");
-    const binWidth = Number(binInput.value) || dataRange / 15;
+    const binCount = Math.max(5, Math.min(40, Math.round(Number(binInput.value) || 15)));
+    const binWidth = dataRange / binCount;
     const bandwidth = Number(bandwidthInput.value) || dataRange * .08;
-    $("#bin-width-output").value = niceNumber(binWidth, 4);
-    $("#bin-width-output").textContent = niceNumber(binWidth, 4);
+    $("#bin-count-output").value = binCount;
+    $("#bin-count-output").textContent = binCount;
     $("#bandwidth-output").value = niceNumber(bandwidth, 4);
     $("#bandwidth-output").textContent = niceNumber(bandwidth, 4);
 
     const domain = x.domain();
-    const thresholds = d3.range(domain[0] + binWidth, domain[1], binWidth);
-    const binning = d3.bin().value(d => d[detailKey]).domain(domain).thresholds(thresholds);
+    const thresholds = d3.range(1, binCount).map(i => minValue + i * binWidth);
+    const binning = d3.bin().value(d => d[detailKey]).domain([minValue, maxValue]).thresholds(thresholds);
     const bins = binning(DATA);
     const selectedBins = binning(subset);
     const samples = d3.range(121).map(i => domain[0] + i / 120 * (domain[1] - domain[0]));
@@ -401,9 +552,17 @@
     const baseBars = plot.append("g").selectAll("rect.hist-bar").data(bins).join("rect")
       .attr("class", "hist-bar")
       .attr("x", b => x(b.x0) + 1)
-      .attr("y", b => y(b.length))
+      .attr("y", b => animate ? innerHeight : y(b.length))
       .attr("width", b => Math.max(0, x(b.x1) - x(b.x0) - 2))
-      .attr("height", b => innerHeight - y(b.length));
+      .attr("height", b => animate ? 0 : innerHeight - y(b.length))
+      .attr("opacity", animate ? .35 : 1);
+    if (animate && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      baseBars.transition().duration(430).delay((d, i) => Math.min(i * 5, 145))
+        .ease(d3.easeCubicOut).attr("y", b => y(b.length))
+        .attr("height", b => innerHeight - y(b.length)).attr("opacity", 1);
+    } else {
+      baseBars.attr("y", b => y(b.length)).attr("height", b => innerHeight - y(b.length)).attr("opacity", 1);
+    }
     baseBars.append("title").text(b => `${niceNumber(b.x0)}–${niceNumber(b.x1)} : ${b.length} observation(s)`);
     if (selectionActive()) {
       const selectedBars = plot.append("g").selectAll("rect.hist-selected").data(selectedBins).join("rect")
@@ -416,14 +575,43 @@
     }
 
     const densityLine = d3.line().x(d => x(d.x)).y(d => y(d.count)).curve(d3.curveCatmullRom.alpha(.5));
-    plot.append("path").datum(allDensity).attr("class", "kde-line").attr("d", densityLine);
-    if (selectionActive() && subset.length) plot.append("path").datum(selectedDensity).attr("class", "kde-selected").attr("d", densityLine);
+    const kdePath = plot.append("path").datum(allDensity).attr("class", "kde-line").attr("d", densityLine);
+    if (animate && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      const pathLength = kdePath.node().getTotalLength();
+      kdePath.attr("stroke-dasharray", `${pathLength} ${pathLength}`).attr("stroke-dashoffset", pathLength)
+        .transition().duration(680).ease(d3.easeCubicOut).attr("stroke-dashoffset", 0);
+    }
+    if (selectionActive() && subset.length) {
+      const selectedPath = plot.append("path").datum(selectedDensity).attr("class", "kde-selected").attr("d", densityLine);
+      if (animate && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        const pathLength = selectedPath.node().getTotalLength();
+        selectedPath.attr("stroke-dasharray", `${pathLength} ${pathLength}`).attr("stroke-dashoffset", pathLength)
+          .transition().duration(520).ease(d3.easeCubicOut).attr("stroke-dashoffset", 0);
+      }
+    }
     plot.append("g").attr("class", "chart-axis").attr("transform", `translate(0,${innerHeight})`).call(d3.axisBottom(x).ticks(Math.max(4, Math.floor(innerWidth / 100))).tickFormat(v => niceNumber(v, 4)));
     plot.append("g").attr("class", "chart-axis").call(d3.axisLeft(y).ticks(5).tickFormat(d3.format("d")));
     plot.append("text").attr("class", "axis-title").attr("x", innerWidth / 2).attr("y", innerHeight + 43).attr("text-anchor", "middle").text(feature.label);
     plot.append("text").attr("class", "axis-title").attr("transform", "rotate(-90)").attr("x", -innerHeight / 2).attr("y", -43).attr("text-anchor", "middle").text("Effectif équivalent");
     svg.append("text").attr("x", width - margin.right).attr("y", 17).attr("text-anchor", "end").attr("fill", "#6d7c78").attr("font-size", 10)
       .text(selectionActive() ? `${subset.length} sélectionnée(s) / ${DATA.length}` : `${DATA.length} observations`);
+
+    const distributionBrush = d3.brushX().extent([[0, 0], [innerWidth, innerHeight]])
+      .on("start", event => {
+        if (event.sourceEvent && !suppressBrushEvents) {
+          clearMatrixBrushes();
+          clearParallelBrushes();
+        }
+      })
+      .on("end", event => {
+        if (suppressBrushEvents || !event.selection) return;
+        const values = event.selection.map(x.invert).sort((a, b) => a - b);
+        setSelection(DATA
+          .filter(row => row[detailKey] >= values[0] && row[detailKey] <= values[1])
+          .map(row => row.__id));
+      });
+    const brushGroup = plot.append("g").attr("class", "distribution-brush").call(distributionBrush);
+    brushGroup.node().__brushBehavior = distributionBrush;
   }
 
   function showTooltip(event, row, content) {

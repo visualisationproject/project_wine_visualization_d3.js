@@ -3,67 +3,144 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Exploration hors ligne des 13 variables numériques du jeu de données Wine avec D3.js.">
-  <title>Wine — exploration visuelle</title>
+  <meta name="theme-color" content="#192622">
+  <meta name="description" content="Atlas interactif hors ligne des 13 variables numériques du jeu Wine, réalisé avec D3.js.">
+  <title>Wine / Atlas des mesures</title>
   <link rel="stylesheet" href="styles.css">
   <script src="d3.v7.min.js"></script>
   <script src="wine-data.js"></script>
   <script src="app.js" defer></script>
 </head>
 <body>
-  <header class="page-head">
-    <div class="head-copy">
-      <p class="eyebrow">TP · VISUALISATION EXPLORATOIRE · D3.JS</p>
-      <h1>Wine <span>en clair.</span></h1>
-      <p class="intro">Explorer les relations entre les mesures chimiques, repérer des profils et examiner une variable en détail.</p>
+  <a class="skip-link" href="#contenu">Passer à l’exploration</a>
+
+  <header class="site-shell" id="top">
+    <div class="topbar">
+      <a class="brand" href="#top" aria-label="Wine, retour en haut de page">
+        <span class="brand-mark">W<span>/</span>13</span>
+        <span class="brand-caption">ATLAS DE DONNÉES<small>UCI · WINE RECOGNITION</small></span>
+      </a>
+      <nav class="site-nav" aria-label="Navigation des visualisations">
+        <a href="#matrix"><span>01</span> Matrice</a>
+        <a href="#parallel"><span>02</span> Profils</a>
+        <a href="#distribution"><span>03</span> Distribution</a>
+      </nav>
+      <div class="local-status"><span class="status-pulse"></span><span>D3.JS <b>·</b> LOCAL</span></div>
     </div>
-    <div class="dataset-badge"><span class="badge-dot"></span><span id="dataset-summary">Chargement des données…</span></div>
+
+    <div class="hero">
+      <div class="hero-copy">
+        <p class="hero-kicker"><span class="hero-kicker-rule"></span> CARNET D’ANALYSE <span class="hero-kicker-index">01 / 03</span></p>
+        <h1>Wine,<br><em>sous 13 angles.</em></h1>
+        <p class="hero-description">178 observations, treize mesures chimiques. Trois vues pour lire les relations, comparer les profils et isoler une distribution.</p>
+        <div class="hero-actions">
+          <a class="explore-link" href="#matrix">Entrer dans l’atlas <span aria-hidden="true">↘</span></a>
+          <span class="hero-note">Exploration multivariée<br>sans connexion ni serveur</span>
+        </div>
+      </div>
+
+      <div class="hero-art" aria-hidden="true">
+        <svg class="molecule-illustration" viewBox="0 0 520 340">
+          <ellipse class="orbit orbit-one" cx="260" cy="170" rx="182" ry="77"></ellipse>
+          <ellipse class="orbit orbit-two" cx="260" cy="170" rx="126" ry="145"></ellipse>
+          <g class="molecule-drift">
+            <path class="bond" d="M105 145 175 91 255 161 344 90 414 151 365 241 279 264 193 239 105 145M175 91 193 239M255 161 279 264M344 90 365 241"></path>
+            <circle class="atom atom-mint" cx="105" cy="145" r="7"></circle>
+            <circle class="atom atom-coral" cx="175" cy="91" r="5"></circle>
+            <circle class="atom atom-cream" cx="255" cy="161" r="8"></circle>
+            <circle class="atom atom-lilac" cx="344" cy="90" r="6"></circle>
+            <circle class="atom atom-mint" cx="414" cy="151" r="5"></circle>
+            <circle class="atom atom-coral" cx="365" cy="241" r="7"></circle>
+            <circle class="atom atom-cream" cx="279" cy="264" r="5"></circle>
+            <circle class="atom atom-lilac" cx="193" cy="239" r="7"></circle>
+          </g>
+          <circle class="core-ring" cx="260" cy="170" r="42"></circle>
+          <circle class="core-dot" cx="260" cy="170" r="3"></circle>
+          <text class="core-number" x="260" y="166" text-anchor="middle">13</text>
+          <text class="core-label" x="260" y="184" text-anchor="middle">MESURES</text>
+          <circle class="spark spark-one" cx="437" cy="83" r="3"></circle>
+          <circle class="spark spark-two" cx="103" cy="251" r="2.5"></circle>
+          <circle class="spark spark-three" cx="400" cy="278" r="2"></circle>
+        </svg>
+        <div class="art-caption"><span id="dataset-summary">Chargement des données…</span><span>UCI / DATASET 109</span></div>
+        <span class="art-index">109</span>
+      </div>
+      <div class="hero-baseline"><span>WINE RECOGNITION DATASET</span><span>ÉTUDE EXPLORATOIRE <i>—</i> D3 / SVG</span></div>
+    </div>
   </header>
 
-  <main>
-    <section class="overview" aria-label="Résumé des données">
-      <div class="overview-item"><span class="overview-value" id="row-count">—</span><span class="overview-label">observations</span></div>
-      <div class="overview-item"><span class="overview-value" id="feature-count">—</span><span class="overview-label">variables numériques</span></div>
-      <div class="overview-item overview-selection"><span class="overview-value" id="selection-count">178 / 178</span><span class="overview-label" id="selection-label">observations visibles</span></div>
-      <button id="clear-selection" class="quiet-button" type="button">Effacer la sélection</button>
+  <main id="contenu">
+    <section class="overview js-reveal" aria-label="Résumé des données">
+      <div class="overview-heading"><span class="overview-overline">LE JEU DE DONNÉES</span><span class="overview-rule"></span></div>
+      <div class="overview-grid">
+        <div class="overview-item"><span class="overview-value" id="row-count">—</span><span class="overview-label">observations</span></div>
+        <div class="overview-item"><span class="overview-value" id="feature-count">—</span><span class="overview-label">variables numériques</span></div>
+        <div class="overview-item overview-selection"><span class="overview-value" id="selection-count">178 / 178</span><span class="overview-label" id="selection-label">observations visibles</span></div>
+        <button id="clear-selection" class="quiet-button" type="button"><span aria-hidden="true">↺</span> Réinitialiser la sélection</button>
+      </div>
     </section>
 
-    <section class="card matrix-card" aria-labelledby="matrix-heading">
+    <section id="matrix" class="card matrix-card js-reveal" aria-labelledby="matrix-heading">
       <div class="section-heading">
-        <div><p class="kicker">01 · VUE GLOBALE</p><h2 id="matrix-heading">Matrice de dispersion</h2></div>
-        <p class="section-hint">Les libellés abrégés affichent leur nom complet au survol. Glissez dans une case pour sélectionner des observations ; cliquez sur un libellé pour choisir la variable détaillée.</p>
+        <div class="heading-title"><p class="kicker"><span>01</span> · VUE GLOBALE</p><h2 id="matrix-heading">Matrice de dispersion</h2></div>
+        <p class="section-hint">Veuillez cliquer sur un nuage de points (scatter plot) de votre choix pour l’agrandir. Glissez dans une case pour sélectionner un groupe ; cliquez sur un libellé pour ouvrir sa distribution.</p>
       </div>
-      <div class="legend"><span class="legend-dot muted-dot"></span>Observations <span class="legend-dot selected-dot"></span>Sélection</div>
+      <div class="chart-toolbar">
+        <div class="legend"><span class="legend-dot muted-dot"></span>Observations <span class="legend-dot selected-dot"></span>Sélection</div>
+        <span class="chart-note">13 × 13 <i>·</i> VUE CROISÉE</span>
+      </div>
       <div class="chart-scroll matrix-scroll"><svg id="scatter-matrix" aria-label="Matrice de dispersion interactive des 13 variables numériques"></svg></div>
+      <div class="card-footnote"><span>01</span><span>Chaque case croise deux mesures ; la diagonale résume leur distribution.</span><span class="footnote-arrow" aria-hidden="true">↗</span></div>
     </section>
 
-    <section class="card parallel-card" aria-labelledby="parallel-heading">
+    <section id="parallel" class="card parallel-card js-reveal" aria-labelledby="parallel-heading">
       <div class="section-heading">
-        <div><p class="kicker">02 · VUE GLOBALE</p><h2 id="parallel-heading">Coordonnées parallèles</h2></div>
-        <p class="section-hint">Chaque ligne représente une observation. Les noms complets apparaissent au survol ; les plages sélectionnées sur plusieurs axes se combinent. Cliquez sur un libellé pour choisir la variable détaillée.</p>
+        <div class="heading-title"><p class="kicker"><span>02</span> · VUE GLOBALE</p><h2 id="parallel-heading">Coordonnées parallèles</h2></div>
+        <p class="section-hint">Une ligne par observation. Sélectionnez une plage sur un axe ; plusieurs plages se combinent pour affiner le profil.</p>
       </div>
-      <div class="legend"><span class="legend-line"></span>Toutes les observations <span class="legend-line selected-line"></span>Observations sélectionnées</div>
+      <div class="chart-toolbar">
+        <div class="legend"><span class="legend-line"></span>Toutes les observations <span class="legend-line selected-line"></span>Observations sélectionnées</div>
+        <span class="chart-note">178 <i>·</i> PROFILS</span>
+      </div>
       <div class="chart-scroll parallel-scroll"><svg id="parallel-plot" aria-label="Coordonnées parallèles interactives des variables du vin"></svg></div>
+      <div class="card-footnote"><span>02</span><span>Les plages actives sont croisées entre les axes et synchronisées dans les autres vues.</span><span class="footnote-arrow" aria-hidden="true">↗</span></div>
     </section>
 
-    <section class="card detail-card" aria-labelledby="detail-heading">
+    <section id="distribution" class="card detail-card js-reveal" aria-labelledby="detail-heading">
       <div class="section-heading detail-heading">
-        <div><p class="kicker">03 · VUE DÉTAILLÉE</p><h2 id="detail-heading">Distribution d’une variable</h2></div>
-        <label class="feature-picker">Variable à examiner
+        <div class="heading-title"><p class="kicker"><span>03</span> · VUE DÉTAILLÉE</p><h2 id="detail-heading">Une mesure, sa distribution</h2></div>
+        <label class="feature-picker">VARIABLE À EXAMINER
           <select id="feature-select" aria-label="Variable à examiner"></select>
         </label>
       </div>
-      <p class="section-hint detail-explainer">Histogramme et estimation de densité à noyau gaussien (KDE) sont superposés sur une échelle d’effectifs équivalents. La sélection apparaît en orange.</p>
+      <p class="section-hint detail-explainer">Histogramme et estimation de densité à noyau gaussien (KDE) partagent une échelle d’effectifs équivalents. Ajustez le nombre de barres et le lissage ; glissez sur le graphique pour sélectionner une plage et synchroniser les observations dans les autres vues.</p>
       <div class="controls">
-        <label class="range-control" for="bin-width"><span>Largeur des classes</span><output id="bin-width-output">—</output><input id="bin-width" type="range" min="0" max="100" step="1" value="35"></label>
+        <label class="range-control" for="bin-count"><span>Nombre de barres</span><output id="bin-count-output">15</output><input id="bin-count" type="range" min="5" max="40" step="1" value="15"></label>
         <label class="range-control" for="bandwidth"><span>Lissage du noyau gaussien</span><output id="bandwidth-output">—</output><input id="bandwidth" type="range" min="0" max="100" step="1" value="24"></label>
       </div>
-      <div class="legend distribution-legend"><span class="legend-box"></span>Histogramme (ensemble) <span class="legend-line density-line"></span>Densité KDE <span class="legend-box selected-box"></span>Sélection</div>
+      <div class="chart-toolbar distribution-toolbar">
+        <div class="legend distribution-legend"><span class="legend-box"></span>Histogramme <span class="legend-line density-line"></span>Densité KDE <span class="legend-box selected-box"></span>Sélection</div>
+        <span class="chart-note">DENSITÉ <i>·</i> EFFECTIF</span>
+      </div>
       <div class="chart-scroll distribution-scroll"><svg id="distribution-plot" aria-label="Histogramme et densité gaussienne de la variable choisie"></svg></div>
+      <div class="card-footnote"><span>03</span><span>Une sélection faite ici ou dans les vues globales est mise en évidence dans les trois graphiques.</span><span class="footnote-arrow" aria-hidden="true">↗</span></div>
     </section>
 
-    <footer class="page-foot"><span>Wine recognition data · 178 lignes · 13 mesures continues</span><span>D3.js v7 · fichiers locaux · sans serveur</span></footer>
+    <footer class="page-foot"><a class="footer-mark" href="#top">W<span>/</span>13</a><span>Wine recognition data <i>·</i> 178 lignes <i>·</i> 13 mesures continues</span><span>D3.js v7 <i>·</i> fichiers locaux <i>·</i> hors ligne</span></footer>
   </main>
+  <dialog id="scatter-dialog" class="scatter-dialog" aria-labelledby="scatter-dialog-title">
+    <div class="scatter-dialog-shell">
+      <div class="scatter-dialog-heading">
+        <div>
+          <p class="kicker"><span>01</span> · VUE AGRANDIE</p>
+          <h2 id="scatter-dialog-title">Nuage de points</h2>
+        </div>
+        <button id="scatter-dialog-close" class="dialog-close" type="button" aria-label="Fermer le nuage agrandi">×</button>
+      </div>
+      <p id="scatter-dialog-description" class="scatter-dialog-description"></p>
+      <div class="scatter-dialog-plot"><svg id="scatter-detail-plot" role="img"></svg></div>
+    </div>
+  </dialog>
   <div id="tooltip" role="status" aria-live="polite"></div>
 </body>
 </html>

@@ -1,4 +1,7 @@
-Jeu de données : Wine recognition data (jeu Wine fourni par l'utilisateur).
+Jeu de données : Wine, UCI Machine Learning Repository, dataset 109.
+URL : https://archive.ics.uci.edu/dataset/109/wine
+DOI : https://doi.org/10.24432/C5PC7J
+Fichiers sources wine.data et wine.names fournis par l'utilisateur.
 Description consultée : fichier wine.names fourni avec les données.
 La première colonne (identifiant de classe) n'est pas distribuée dans wine.csv,
 wine.json ni wine-data.js : seules les 13 mesures continues sont incluses.

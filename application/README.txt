@@ -9,6 +9,14 @@ Démarrage
    L'application lit wine-data.js comme un script local : elle n'utilise pas fetch(),
    ce qui évite le blocage habituel des fichiers JSON sous file://.
 
+Direction visuelle et mouvements
+--------------------------------
+L'interface adopte une direction éditoriale « atlas de laboratoire » : encre sombre,
+papier minéral et accents dédiés à chacune des trois vues. Une illustration moléculaire,
+les vues au défilement et le tracé de la KDE utilisent des mouvements lents ou courts,
+liés à la lecture des données. Aucune police, image, icône ou bibliothèque n'est appelée
+sur Internet. Le réglage système « réduire les animations » est respecté.
+
 Contenu
 -------
 index.html       Page réunissant les trois visualisations du TP.
@@ -32,15 +40,16 @@ Application du TP (document de 2 pages)
   de plusieurs axes se combinent par intersection.
 • Vue détaillée — histogramme et densité sont superposés. Le menu permet de
   choisir la variable; cliquer sur un libellé de variable dans les deux vues
-  globales la sélectionne aussi. Deux curseurs règlent la largeur des classes et
-  la largeur de bande (lissage) du noyau gaussien.
+  globales la sélectionne aussi. Deux curseurs, avec leur valeur numérique,
+  règlent le nombre de barres de l'histogramme et la largeur de bande (lissage)
+  du noyau gaussien.
 • La sélection de la matrice et des coordonnées parallèles est répercutée dans les
-  deux vues globales et dans la vue détaillée. « Effacer la sélection » réinitialise
-  toutes les vues.
+  deux vues globales et dans la vue détaillée. « Réinitialiser la sélection » remet
+  toutes les vues à l'état initial.
 • Les libellés des deux vues globales sont abrégés pour éviter les collisions :
   survolez-les pour afficher le nom complet, cliquez pour choisir la variable
   détaillée. La matrice, les coordonnées parallèles et la distribution utilisent
-  des couleurs distinctes; l'orange indique la sélection.
+  des couleurs distinctes; le corail signale les observations sélectionnées.
 
 Données et préparation
 ----------------------
